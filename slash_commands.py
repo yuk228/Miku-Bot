@@ -183,5 +183,57 @@ class SlashCommands(commands.Cog):
         embed.add_field(name="Anycast", value=res.get("anycast", "None"), inline=True)
         await interaction.followup.send(embed=embed)
         
+    @nextcord.slash_command(
+        name="avatar",
+        description="ユーザーのアバターを表示します"
+    )
+    async def avatar(
+        self,
+        interaction: Interaction,
+        member: nextcord.Member = SlashOption(
+            name="member",
+            description="アバターを表示するメンバー",
+            required=False
+            )
+    ):
+        if member is None:
+            member = interaction.user
+        
+        embed = nextcord.Embed(
+            title=f"{member.name}({member.display_name})のアバター",
+            color=member.color,
+            timestamp=datetime.datetime.now()
+        )
+        embed.set_image(url=member.display_avatar.url)
+        await interaction.response.send_message(embed=embed)
+
+    @nextcord.slash_command(
+        name="banner",
+        description="ユーザーのバナーを表示します"
+    )
+    async def avatar(
+        self,
+        interaction: Interaction,
+        member: nextcord.Member = SlashOption(
+            name="member",
+            description="バナーを表示するメンバー",
+            required=False
+            )
+    ):
+        if member is None:
+            member = interaction.user
+        
+        user = await self.bot.fetch_user(member.id)
+        if user.banner is None:
+            await interaction.response.send_message(f"{member.display_name}はバナーを設定していません。")
+        else:
+            embed = nextcord.Embed(
+                title=f"{member.name}({member.display_name})のバナー",
+                color=member.color,
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_image(url=user.banner.url)
+            await interaction.response.send_message(embed=embed)
+
 def setup(bot):
     bot.add_cog(SlashCommands(bot))
