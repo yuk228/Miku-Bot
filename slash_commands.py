@@ -1,8 +1,9 @@
+import re
+import requests
 import nextcord
 import datetime
 from nextcord.ext import commands
 from nextcord import Interaction, SlashOption
-import re
 
 class SlashCommands(commands.Cog):
     def __init__(self, bot):
@@ -13,7 +14,7 @@ class SlashCommands(commands.Cog):
     )
     async def slash_ping(self, interaction: Interaction):
         latency = round(self.bot.latency * 1000)
-        await interaction.response.send_message(f"Pong! 応答速度: {latency}ms")
+        await interaction.followup.send(f"Pong! 応答速度: {latency}ms")
     
     @nextcord.slash_command(
         name="userinfo",
@@ -75,7 +76,7 @@ class SlashCommands(commands.Cog):
         embed.add_field(name="テキストチャンネル", value=len(guild.text_channels), inline=True)
         embed.add_field(name="ボイスチャンネル", value=len(guild.voice_channels), inline=True)
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @nextcord.slash_command(
         name="inviteinfo",
@@ -137,5 +138,50 @@ class SlashCommands(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"Error: ```{e}```")
 
+    @nextcord.slash_command(
+        name="ipinfo",
+        description="IP Addressから情報を取得します。"
+    )
+    async def invite_info(
+        self, 
+        interaction: Interaction,
+        ip: str = SlashOption(
+            name="ip",
+            description="ip",
+            required=True
+        )
+    ):
+        ip_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
+        if not re.match(ip_pattern, ip):
+            await interaction.response.send_message("無効なIPアドレス形式です。正しいIPv4アドレスを入力してください。")
+            return
+            
+        octets = ip.split('.')
+        for octet in octets:
+            if not 0 <= int(octet) <= 255:
+                await interaction.response.send_message("無効なIPアドレスです。各オクテットは0から255の範囲内である必要があります。")
+                return
+                
+        await interaction.response.defer()
+
+        res = requests.get(f"https://ipinfo.io/{ip}").json()
+        
+        embed = nextcord.Embed(
+                title=f"IP Lookup",
+                description=f"IP: {ip}",
+                color=nextcord.Color.blue(),
+                timestamp=datetime.datetime.now()
+            )
+        embed.add_field(name="ホスト名", value=res.get("hostname", "None"), inline=True)
+        embed.add_field(name="都市", value=res.get("city", "None"), inline=True)
+        embed.add_field(name="地域", value=res.get("region", "None"), inline=True)
+        embed.add_field(name="国", value=res.get("country", "None"), inline=True)
+        embed.add_field(name="郵便番号", value=res.get("postal", "None"), inline=True)
+        embed.add_field(name="タイムゾーン", value=res.get("timezone", "None"), inline=True)
+        embed.add_field(name="組織", value=res.get("org", "None"), inline=True)
+        embed.add_field(name="位置情報", value=res.get("loc", "None"), inline=True)
+        embed.add_field(name="Anycast", value=res.get("anycast", "None"), inline=True)
+        await interaction.followup.send(embed=embed)
+        
 def setup(bot):
-    bot.add_cog(SlashCommands(bot)) 
+    bot.add_cog(SlashCommands(bot))
