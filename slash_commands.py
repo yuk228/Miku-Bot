@@ -2,6 +2,7 @@ import nextcord
 import datetime
 from nextcord.ext import commands
 from nextcord import Interaction, SlashOption
+import re
 
 class SlashCommands(commands.Cog):
     def __init__(self, bot):
@@ -75,6 +76,66 @@ class SlashCommands(commands.Cog):
         embed.add_field(name="ボイスチャンネル", value=len(guild.voice_channels), inline=True)
         
         await interaction.response.send_message(embed=embed)
+
+    @nextcord.slash_command(
+        name="inviteinfo",
+        description="招待リンクからサーバー情報を取得します"
+    )
+    async def invite_info(
+        self, 
+        interaction: Interaction,
+        link: str = SlashOption(
+            name="invite",
+            description="Discordの招待リンク",
+            required=True
+        )
+    ):
+        await interaction.response.defer()
+         
+        match = re.search(r"(?:https?://)?(?:www\.)?discord(?:app)?\.(?:com/invite|gg)/([a-zA-Z0-9-]+)", link)
+        
+        if not match:
+            await interaction.followup.send("❌ 有効なDiscord招待リンクではありません。\n例: `https://discord.gg/xxxx` または `discord.gg/xxxx`")
+            return
+        
+        try:
+            invite = await self.bot.fetch_invite(match.group(1), with_counts=True)
+            embed = nextcord.Embed(
+                title=f"{invite.guild.name}の情報",
+                description=f"招待リンク: {link}",
+                color=nextcord.Color.blue(),
+                timestamp=datetime.datetime.now()
+            )
+            
+            if invite.guild.icon.url:
+                embed.set_thumbnail(url=invite.guild.icon.url)
+            
+            embed.add_field(name="サーバーID", value=invite.guild.id, inline=True)
+            embed.add_field(name="メンバー数", value=invite.approximate_member_count, inline=True)
+            embed.add_field(name="オンラインメンバー数", value=invite.approximate_presence_count, inline=True)
+            
+            if invite.inviter:
+                embed.add_field(name="招待作成者", value=f"{invite.inviter.name} ({invite.inviter.id})", inline=True)
+            
+            if invite.channel:
+                embed.add_field(name="招待チャンネル", value=f"#{invite.channel.name}", inline=True)
+            
+            if invite.guild.description:
+                embed.add_field(name="説明", value=invite.guild.description, inline=False)
+            
+            if invite.expires_at:
+                expires_at = invite.expires_at.strftime('%Y年%m月%d日 %H:%M:%S')
+                embed.add_field(name="有効期限", value=expires_at, inline=True)
+
+            if hasattr(invite.guild, "premium_subscription_count") and invite.guild.premium_subscription_count is not None:
+                boost_level = invite.guild.premium_tier if hasattr(invite.guild, "premium_tier") else "不明"
+                boost_count = invite.guild.premium_subscription_count
+                embed.add_field(name="ブースト", value=f"レベル {boost_level} (ブースト数: {boost_count})", inline=True)
+            
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            await interaction.followup.send(f"Error: ```{e}```")
 
 def setup(bot):
     bot.add_cog(SlashCommands(bot)) 
